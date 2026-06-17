@@ -7,14 +7,17 @@ import io.circe.parser.*
 import scala.collection.immutable.Map
 import scala.sys.process.*
 import sttp.client4.quick.*
-import sttp.client4.Response
+import sttp.client4.{Response, SttpClientException}
 import sttp.model.Uri
 import config.FetchDependenciesOptions
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import plugins.SCAnsiblePlugin
+import plugins.{SCAnsiblePlugin, getScansiblePluginFolder}
 import plugins.dependencies.Vulnerability
+import sttp.client4.ResponseException.UnexpectedStatusCode
+import util.getAbsolutePath
 
 import java.io.File
+import java.net.URI
 
 object EcosystemsSeverityWarning {
   def translateWarning(warning: String): String = {
@@ -151,7 +154,7 @@ class DependenciesPlugin(input: String, config: FetchDependenciesOptions) extend
   }
 
   protected def find_pypi_vulnerabilities(packageName: String): List[Vulnerability] = {
-    val optPackageMeta: Option[Json] = _search_ecosystems(ecosystem = "pypi.org", packageName)
+    val optPackageMeta: Option[Json] = searchEcosystems(ecosystem = "pypi.org", packageName)
     if (optPackageMeta.isEmpty) {
       println(s"${Console.YELLOW_B}WARNING:${Console.RESET} Could not resolve package $packageName")
       List()
@@ -197,47 +200,43 @@ class DependenciesPlugin(input: String, config: FetchDependenciesOptions) extend
     }
   }
 
-  protected def _search_ecosystems(ecosystem: String, pack: String): Option[Json] = {
+  protected def searchEcosystems(ecosystem: String, pack: String): Option[Json] = {
     if (ecoSystemsCache.contains((ecosystem, pack))) {
       ecoSystemsCache.get(ecosystem, pack)
     } else {
-      val uri: sttp.model.Uri = uri"https://packages.ecosyste.ms/api/v1/registries/$ecosystem/packages/$pack"
-      val resp: Response[String] = quickRequest.get(uri).send()
-      if (resp._2.code == 404) {
-        None
-      } else {
-        raiseForStatus(resp, uri)
-        parse(resp._1) match {
-          case Left(error) =>
-            System.err.println(s"ERROR: Could not parse cache content at ${uri.toString}")
-            System.exit(1)
-            throw new Exception
-          case Right(content) =>
-            ecoSystemsCache.set(ecosystem, pack, content)
-            Some(content)
+      try {
+        val uri: sttp.model.Uri = uri"https://packages.ecosyste.ms/api/v1/registries/$ecosystem/packages/$pack"
+        val resp: Response[String] = quickRequest.get(uri).send()
+        if (resp._2.code == 404) {
+          None
+        } else {
+          raiseForStatus(resp, uri)
+          parse(resp._1) match {
+            case Left(error) =>
+              System.err.println(s"ERROR: Could not parse cache content at ${uri.toString}")
+              System.exit(1)
+              throw new Exception
+            case Right(content) =>
+              ecoSystemsCache.set(ecosystem, pack, content)
+              Some(content)
+          }
         }
+      } catch {
+        case t: SttpClientException =>
+          println(t)
+          None
       }
     }
   }
 
-  protected def extractDependenciesCommand(dependenciesOutputPath: Path): String = {
-    s"""scansible extract-dependencies '../../${input}' '${dependenciesOutputPath}'"""
+  protected def extractDependenciesCommand(dependenciesOutputPath: String): String = {
+    val inputAbsolutePath = getAbsolutePath(input).toNIO
+    val dependenciesOutputAbsolutePath = getAbsolutePath(dependenciesOutputPath).toNIO
+    s"""uv run scansible extract-dependencies $inputAbsolutePath $dependenciesOutputPath"""
   }
 
   protected def checkDependenciesForVulnerabilities(dependencies: Iterable[String]): Unit = {
 
-  }
-
-  protected def getScansiblePluginFolder: Option[Path] = {
-    val scansiblePluginFolder1 = os.pwd / "plugins/scansible"
-    val scansiblePluginFolder2 = os.pwd / "plugins/scansible-main"
-    if (os.isDir(scansiblePluginFolder1)) {
-      Some(scansiblePluginFolder1)
-    } else if (os.isDir(scansiblePluginFolder2)) {
-      Some(scansiblePluginFolder2)
-    } else {
-      None
-    }
   }
 
   override def checkPlugin(): Option[String] = {
@@ -255,7 +254,7 @@ class DependenciesPlugin(input: String, config: FetchDependenciesOptions) extend
   }
 
   protected def extractDependenciesWithScansible(): Path = {
-    val tempOutputFolder = os.pwd / "tmp"
+    val tempOutputFolder = getAbsolutePath("tmp")
     if (!os.isDir(tempOutputFolder)) {
       os.makeDir(tempOutputFolder)
     }
@@ -263,7 +262,7 @@ class DependenciesPlugin(input: String, config: FetchDependenciesOptions) extend
     if (os.isFile(tempOutput)) {
       os.remove(tempOutput)
     }
-    val command: String = extractDependenciesCommand(tempOutput)
+    val command: String = extractDependenciesCommand(tempOutput.toString)
     val scansibleDirectory = getScansiblePluginFolder.get // Should exist, because otherwise the 'checkPlugin' test should have failed
     val process = Process(command, new File(scansibleDirectory.toString))
     try {
@@ -309,9 +308,9 @@ class DependenciesPlugin(input: String, config: FetchDependenciesOptions) extend
             val dependencies = moduleDependenciesObject.toMap.map((moduleDependency, arrayExpected) => {
               val jsonTuples: List[Json] = arrayExpected.asArray.get.toList
               val tuples: List[(String, String, List[Vulnerability])] = jsonTuples.map(tuple => {
-                val tupleMap = tuple.asObject.get.toMap
-                val name = tupleMap("name").asString.get
-                val typ = tupleMap("type").asString.get
+                val tupleArray = tuple.asArray.get
+                val name = tupleArray(0).asString.get
+                val typ = tupleArray(1).asString.get
                 (name, typ, findVulnerabilities(name, typ))
               })
               tuples.foreach(tuple => printVulnerabilities(tuple._1, tuple._3))

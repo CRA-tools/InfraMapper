@@ -8,4 +8,6 @@ then
 	exit 1
 fi
 
+INFRAMAPPER_HOME=$(pwd)
+export INFRAMAPPER_HOME
 java -jar $JAR $@
