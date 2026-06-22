@@ -1,0 +1,51 @@
+@(form: Form[controllers.ScanAnsibleWeaknessesForm])(implicit request: MessagesRequestHeader)
+
+@main("InfraMapper") {
+<div class="upload-page">
+    <div class="upload-card">
+        <h1>InfraMapper</h1>
+        <p>
+            Upload your Ansible file to scan for weaknesses
+        </p>
+
+        @helper.form(action = routes.MainController.upload, Symbol("enctype") -> "multipart/form-data") {
+
+        <div class="form-section">
+            <div class="nice-form-group">
+                @helper.inputFile(
+                form("ansibleFile"),
+                Symbol("_label") -> "Ansible file"
+                )
+            </div>
+
+            @helper.CSRF.formField
+
+            <div class="submit-container">
+                <input
+                        type="submit"
+                        id="upload"
+                        value="Scan"
+                        class="submit-button"
+                />
+            </div>
+
+        </div>
+        }
+    </div>
+</div>
+
+<div class="logo-banner">
+    <div class="logo-container">
+        <div class="logo-item">
+            <a href="https://cra-cy.eu/"><img src="/assets/images/cracy_logo.png" alt="CRACY"></a>
+        </div>
+        <div class="logo-item">
+            <a href="https://cybersecurity-centre.europa.eu/index_en"><img src="/assets/images/eccc-logo.png" alt="ECCC"></a>
+        </div>
+        <div class="logo-item">
+            <a href="https://european-union.europa.eu"><img src="/assets/images/EU_cofunding.png" alt="Co-funded by the EU"></a>
+        </div>
+    </div>
+</div>
+
+}

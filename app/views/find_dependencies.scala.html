@@ -1,0 +1,55 @@
+@(form: Form[controllers.FindAnsibleDependenciesForm])(implicit request: MessagesRequestHeader)
+
+@main("InfraMapper") {
+<div class="upload-page">
+    <div class="upload-card">
+        <h1>InfraMapper</h1>
+        <p>
+            Upload your zipped Ansible files.
+        </p>
+
+        @helper.form(action = routes.DependenciesController.upload, Symbol("enctype") -> "multipart/form-data") {
+
+        <div class="form-section">
+            <div class="nice-form-group">
+                @helper.inputFile(
+                form("zippedAnsibleProject"),
+                Symbol("_label") -> "Zipped Ansible files"
+                )
+            </div>
+
+            <div class="nice-form-group">
+                @helper.checkbox(form("lookupVulnerabilities"), Symbol("_label") -> "Check dependencies for known vulnerabilities?", Symbol("_text") -> "", Symbol("_help") -> "")
+            </div>
+
+            @helper.CSRF.formField
+
+            <div class="submit-container">
+                <input
+                        type="submit"
+                        id="upload"
+                        value="Lookup dependencies"
+                        class="submit-button"
+                />
+            </div>
+
+        </div>
+        }
+    </div>
+</div>
+
+<div class="logo-banner">
+    <div class="logo-container">
+        <div class="logo-item">
+            <a href="https://cra-cy.eu/"><img src="/assets/images/cracy_logo.png" alt="CRACY"></a>
+        </div>
+        <div class="logo-item">
+            <a href="https://cybersecurity-centre.europa.eu/index_en"><img src="/assets/images/eccc-logo.png" alt="ECCC"></a>
+        </div>
+        <div class="logo-item">
+            <a href="https://european-union.europa.eu"><img src="/assets/images/EU_cofunding.png" alt="Co-funded by the EU"></a>
+        </div>
+    </div>
+</div>
+
+}

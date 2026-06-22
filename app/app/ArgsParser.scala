@@ -1,3 +1,5 @@
+package app
+
 import scopt._
 
 import config._
