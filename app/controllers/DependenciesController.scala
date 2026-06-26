@@ -1,13 +1,13 @@
 package controllers
 
-import app.Main
-import config._
+import config.*
 import play.api.*
 import play.api.data.Form
 import play.api.data.Forms.*
 import play.api.mvc.*
 import play.api.mvc.MultipartFormData.FilePart
 import play.core.parsers.Multipart.FileInfo
+import util.removeOptFile
 
 import java.io.File
 import javax.inject.*
@@ -37,6 +37,7 @@ class DependenciesController @Inject()(cc:MessagesControllerComponents)
     case None => None
     case Some(zippedAnsibleFiles) =>
       val unzippedFolderPath: String = extractZippedProject(zippedAnsibleFiles)
+      removeOptFile(zippedAnsibleFiles.getAbsolutePath)
       Some(StartupConfiguration(FetchDependenciesCommand, unzippedFolderPath, FetchDependenciesOptions(form.lookupVulnerabilities)))
   }
 
@@ -44,30 +45,18 @@ class DependenciesController @Inject()(cc:MessagesControllerComponents)
     Ok(views.html.find_dependencies(form))
   }
 
-  protected def start(config: StartupConfiguration): Either[String, Unit] = {
-    try {
-      Main.run(config)
-    } catch {
-      case e: Throwable =>
-        e.printStackTrace()
-        Right(e.getMessage)
-    }
-  }
-
   def upload: Action[MultipartFormData[File]] = Action(parse.multipartFormData(handleFilePartAsFile)) { implicit request =>
-    val optAnsibleFile: Option[File] = request.body.file("ansibleFile").map {
+    val optZippedAnsibleProject: Option[File] = request.body.file("zippedAnsibleProject").map {
       case FilePart(key, filename, contentType, file, fileSize, dispositionType, _) =>
-        println(s"filename = $filename")
         file
     }
     val optFormData: Option[FindAnsibleDependenciesForm] = form.bindFromRequest(request.body.dataParts).bindFromRequest().fold(
-      errors => {
-        println(s"errors = $errors"); None
-      }, x => Some(x))
+      errors => { None }, x => Some(x))
     optFormData match {
       case None => BadRequest
       case Some(formData) =>
-        val optStartupConfig = toStartupConfiguration(optAnsibleFile, formData)
+        val newFormData = formData.copy(zippedAnsibleProject = optZippedAnsibleProject)
+        val optStartupConfig = toStartupConfiguration(optZippedAnsibleProject, newFormData)
         runFromStartupConfig(optStartupConfig)
     }
   }

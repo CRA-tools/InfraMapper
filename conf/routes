@@ -4,9 +4,14 @@
 
 GET     /                           controllers.MainController.index
 
+# Alternative path
+GET     /weaknesses                 controllers.MainController.index
+GET     /weaknesses/                controllers.MainController.index
+
 POST    /upload                     controllers.MainController.upload
 
 GET     /dependencies               controllers.DependenciesController.find_dependencies
+GET     /dependencies/              controllers.DependenciesController.find_dependencies
 
 POST    /dependencies/upload        controllers.DependenciesController.upload
 

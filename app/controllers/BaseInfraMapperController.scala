@@ -1,19 +1,21 @@
 package controllers
 
+import app.Main
 import better.files
 
 import java.nio.file.{Files, Path}
-import play.api.mvc._
+import play.api.mvc.*
 
 import scala.concurrent.{ExecutionContext, Future}
 import config.StartupConfiguration
+import io.circe.Json
 import org.apache.pekko.stream.IOResult
 import org.apache.pekko.stream.scaladsl.{FileIO, Sink}
 import org.apache.pekko.util.ByteString
 import play.api.libs.streams.Accumulator
 import play.api.mvc.MultipartFormData.FilePart
 import play.core.parsers.Multipart.FileInfo
-import util.Log
+import util.{Log, removeOptFile}
 
 import java.io.File
 import java.util.zip.ZipEntry
@@ -22,18 +24,9 @@ abstract class BaseInfraMapperController(cc:MessagesControllerComponents)
                                         (implicit executionContext: ExecutionContext)
   extends MessagesAbstractController(cc) {
 
-  protected def start(startupConfiguration: StartupConfiguration): Either[String, Unit]
-
-//  protected def removeTempFiles(config: StartupConfiguration): Unit = {
-//      def removeOptFile(path: String): Unit = {
-//        try {
-//          Files.deleteIfExists(Path.of(path))
-//        } catch {
-//          case _: Throwable =>
-//        }
-//      }
-//      config.inputManifestPath.foreach(removeOptFile)
-//    }
+  protected def removeTempFiles(config: StartupConfiguration): Unit = {
+      removeOptFile(config.input)
+    }
 
   protected def extractZippedProject(optInputProject: File): String = {
     val zipped: files.File = better.files.File(optInputProject.toPath)
@@ -78,15 +71,24 @@ abstract class BaseInfraMapperController(cc:MessagesControllerComponents)
       case None =>
         BadRequest
       case Some(startupConfig) =>
-        println(s"startupConfig = $startupConfig")
         val maybeResult = start(startupConfig)
-        //        removeTempFiles(startupConfig)
+        removeTempFiles(startupConfig)
         maybeResult match {
           case Left(errorMessage) =>
             InternalServerError(errorMessage)
-          case Right(_) =>
-            Ok(s"Operation successful")
+          case Right(json) =>
+            Ok(json.spaces2).as("application/json")
         }
+    }
+  }
+
+  protected def start(config: StartupConfiguration): Either[String, Json] = {
+    try {
+      Main.run(config)
+    } catch {
+      case e: Throwable =>
+        e.printStackTrace()
+        Left(e.getMessage)
     }
   }
 

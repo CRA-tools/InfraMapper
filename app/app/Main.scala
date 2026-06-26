@@ -1,6 +1,7 @@
 package app
 
 import config.*
+import io.circe.Json
 import plugins.SCAnsiblePlugin
 import plugins.dependencies.DependenciesPlugin
 import plugins.weaknesses.WeaknessesPlugin
@@ -10,7 +11,7 @@ object Main {
 
   val appName: String = "InfraMapper"
 
-  def run(config: StartupConfiguration): Either[String, Unit] = {
+  def run(config: StartupConfiguration): Either[String, Json] = {
     val maybeEngine: Either[String, SCAnsiblePlugin] = config.command match {
       case AnalyseWeaknessesCommand =>
         if (! config.extraCommandOptions.isInstanceOf[AnalyseWeaknessesOptions]) {
@@ -30,7 +31,14 @@ object Main {
     }
     maybeEngine match {
       case Left(message) => Left(message)
-      case Right(engine) => Right(engine.run())
+      case Right(engine) =>
+        val optResult = engine.run()
+        optResult match {
+          case Left(message) => Left(message)
+          case Right(result) =>
+            val asJson = engine.resultToOutput(result)
+            Right(asJson)
+        }
     }
   }
 
@@ -39,8 +47,11 @@ object Main {
     val optConfig = parser.parseArgs(args)
     optConfig match {
       case None =>
+        Log.logMessage("Incorrect invocation\nUsage:")
+        Log.logMessage(parser.usage)
         System.exit(1)
-      case Some(config) => run(config)
+      case Some(config) =>
+        run(config)
     }
   }
 }
