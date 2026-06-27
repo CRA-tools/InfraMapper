@@ -6,4 +6,5 @@ target
 .idea
 .bsp
 plugins/scansible-main
-plugins
+plugins/scansible
+temp/
