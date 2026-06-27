@@ -1,0 +1,27 @@
+# Ansible playbook
+
+- hosts: all
+  name: Example
+  tasks:
+    - name: Set empty password
+      community.mysql.mysql_user:
+        login_unix_socket: "{{ mysql_socket }}"
+        login_user: maarten
+        login_password: ""
+
+    - name: Set user with hardcoded credentials
+      user:
+        name: maarten
+        pass: password123
+
+    - name: Yum install Zabbix release
+      yum:
+        name: "http://repo.zabbix.com/zabbix/3.0/rhel/x86_64/zabbix-release-3.0-1.el.noarch.rpm"
+        when: ansible_os_family == "RedHat"
+
+    - name: Download file with a weak cryptographic check (md5)
+      ansible.builtin.get_url:
+        user: root
+        url: "https://example.com/path/file.conf"
+        dest: /etc/temp.conf
+        checksum: md5:66dffb5228a211e61d6d7ef4a86f5758
