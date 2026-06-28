@@ -4,20 +4,37 @@ import scala.sys.process._
 
 abstract class SCAnsiblePlugin extends Plugin {
 
-  override def checkPlugin(): Option[String] = {
-    val incorrectSetupMessage: String =
-      """Required package 'uv' not found in the environment. Please consult the documentation for the SCAnsible plugin for information on setting up the environment."""
+  protected def checkUvInstalled(): Boolean = {
     val uvVersion = "uv --version"
     try {
       val output: String = uvVersion.!!
       if (output.startsWith("uv")) {
-        None
+        // uv was found
+        true
       } else {
-        Some(incorrectSetupMessage)
+        false
       }
     } catch {
-      case _: Exception =>
-        Some(incorrectSetupMessage)
+      case _: Throwable => false
+    }
+  }
+
+  protected def checkScansiblePluginInstalled: Boolean = {
+    val scansiblePluginFolder = getScansiblePluginFolder
+    scansiblePluginFolder.isDefined
+  }
+
+  override def checkPlugin(): Option[String] = {
+    val uvInstalled = checkUvInstalled()
+    if (! uvInstalled) {
+      Some("""Required package 'uv' not found in the environment. Please consult the documentation for the SCAnsible plugin for information on setting up the environment.""")
+    } else {
+      val scansiblePluginInstalled = checkScansiblePluginInstalled
+      if (! scansiblePluginInstalled) {
+        Some("""The 'plugins' folder does not contain a 'scansible' folder. Did you make sure to download and extract 'scansible' to the 'plugins' folder?""")
+      } else {
+        None
+      }
     }
   }
 

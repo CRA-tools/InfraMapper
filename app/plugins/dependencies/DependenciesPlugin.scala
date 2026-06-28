@@ -238,20 +238,6 @@ class DependenciesPlugin(input: String, config: FetchDependenciesOptions) extend
     s"""uv run scansible extract-dependencies $inputAbsolutePath $dependenciesOutputPath"""
   }
 
-  override def checkPlugin(): Option[String] = {
-    val previousCheck = super.checkPlugin()
-    previousCheck match {
-      case None =>
-        // Previous check did not fail, check whether a scansible plugin folder can be found
-        val scansiblePluginFolder = getScansiblePluginFolder
-        scansiblePluginFolder match {
-          case None => Some("The 'plugins' folder does not contain a 'scansible' folder. Did you make sure to download and extract 'scansible' to the 'plugins' folder?")
-          case _ => None
-        }
-      case _ => previousCheck
-    }
-  }
-
   protected def extractDependenciesWithScansible(): (String, Path) = {
     val tempOutputFolder = getAbsolutePath("tmp")
     if (!os.isDir(tempOutputFolder)) {
